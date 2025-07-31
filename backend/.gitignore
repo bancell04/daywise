@@ -1,0 +1,28 @@
+# Binaries
+/bin/
+/build/
+
+# Output of 'go build'
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Dependency directories
+/vendor/
+
+# IDE/editor files
+.vscode/
+.idea/
+*.swp
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Environment variables or secrets
+.env
