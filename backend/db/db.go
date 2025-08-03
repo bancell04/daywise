@@ -31,7 +31,7 @@ func Setup() {
             title TEXT NOT NULL,
             category TEXT,
             start TIMESTAMPTZ,
-            end TIMESTAMPTZ
+            "end" TIMESTAMPTZ
         )
     `)
 

@@ -3,7 +3,7 @@
 
     async function logTask(task: Task): Promise<any> {
         try {
-            const res = await fetch('http://localhost:8080/task/', {
+            const res = await fetch('http://localhost:8080/task', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(task)
