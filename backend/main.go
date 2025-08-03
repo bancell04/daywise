@@ -15,6 +15,10 @@ func pingHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"message": "pong"})
 }
 
+func uploadTask() {
+	
+}
+
 func main() {
 	db.Connect()
 	db.Setup()
@@ -23,6 +27,8 @@ func main() {
 	r := mux.NewRouter()
 
 	r.HandleFunc("/ping", pingHandler).Methods("GET")
+
+	r.HandleFunc("/task", up)
 
 	handler := cors.Default().Handler(r)
 
