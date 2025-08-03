@@ -1,23 +1,13 @@
 <script>
-    import { goto } from '$app/navigation';
-
-    const goToLog = () => goto('/log');
-    const goToHistory = () => goto('/history');
-    const goToVisualize = () => goto('/visualize');
-    const goToProfile = () => goto('/profile');
+    import { onMount } from "svelte";
+    onMount(async () => {
+  
+    });
 </script>
-<h1>Welcome to Daywise</h1>
-<div class="flex flex-col ">
-    <button aria-label="navigate to log" on:click={goToLog}>
-        Log
-    </button>
-    <button aria-label="navigate to log" on:click={goToHistory}>
-        History
-    </button>
-    <button aria-label="navigate to visualize" on:click={goToVisualize}>
-        Visualize
-    </button>
-    <button aria-label="navigate to profile" on:click={goToProfile}>
-        Profile
-    </button>
+
+<div class="min-h-175 w-full flex flex-col justify-center items-center bg-gray-100">
+    <div class="flex items-center justify-center">
+      <h1 class="pb-1 text-7xl font-bold">Welcome to&nbsp;</h1>
+      <h1 class="pb-1 text-7xl font-bold bg-gradient-to-r from-[#7dc4d9] to-[#e1db7f] bg-clip-text text-transparent font-bold">Daywise</h1>
+    </div>
 </div>

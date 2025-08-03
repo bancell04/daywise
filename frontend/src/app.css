@@ -1,3 +1,33 @@
+@import url("https://fonts.googleapis.com/css2?family=Red+Hat+Display:ital,wght@0,300..900;1,300..900&display=swap");
 @import 'tailwindcss';
+
 @plugin '@tailwindcss/forms';
 @plugin '@tailwindcss/typography';
+
+body {
+    font-family: "Red Hat Display", sans-serif;
+}
+
+nav > button {
+    padding: 2px;
+    color: #000000;
+    transition: font-size 0.2s ease, color 0.2s ease;
+}
+
+nav > button:hover {
+    padding: 2px;
+    color: #7dc4d9;
+    font-size: x-large;
+}
+
+.active {
+    color: #7dc4d9;
+}
+
+.brand-text {
+    color: #7dc4d9;
+}
+
+.brand-text2 {
+    color: #e1db7f;
+}
