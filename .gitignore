@@ -1,0 +1,43 @@
+# Binaries
+/bin/
+/build/
+
+# Output
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+.output
+.vercel
+.netlify
+.wrangler
+/.svelte-kit
+/build
+
+# Dependency directories
+/vendor/
+
+# IDE/editor files
+.vscode/
+.idea/
+*.swp
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Environment variables or secrets
+.env
+.env.*
+!.env.example
+!.env.test
+
+node_modules
+
+# Vite
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
