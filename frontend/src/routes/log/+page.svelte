@@ -13,22 +13,26 @@
 	let error : string = "";
 
 	onMount(async () => {
-		try {
-            const now = new Date();
-            date = now;
-            const formattedDate = now.toISOString().split('T')[0];
+        const now = new Date();
+        date = now;
+        fetchLogsByDate(date);
+	});
+
+    async function fetchLogsByDate(date : Date) {
+        try {
+            const formattedDate = date.toISOString().split('T')[0];
             const res = await fetch(`http://localhost:8080/tasks/${formattedDate}`);
 			if (!res.ok) throw new Error('Failed to fetch tasks');
 			tasks = await res.json();
-		} catch (err) {
+        } catch (err) {
             if (err instanceof Error) {
                 error = err.message;
             } else {
                 error = 'An unexpected error occurred';
             }
-			console.error(err);
-		}
-	});
+			console.error(err); 
+        }
+    }
 
     function formatDate(date : Date) {
         const today = new Date();
@@ -50,7 +54,7 @@
         });
     }
 
-    async function handleTaskSubmit(event) {
+    async function handleTaskSubmit(event : any) {
         event.preventDefault();
         
         const task : Task = { 
@@ -100,20 +104,19 @@
 
     function incrementDate(direction : number) {
         const newDate = new Date(date);
-
         newDate.setDate(newDate.getDate() + direction);
-
         date = newDate;
-
         console.log(date)
+        fetchLogsByDate(date);
     }
 
 </script>
 
 
 <div class="min-h-175 w-full flex flex-col justify-center items-center bg-gray-100">
+    <h1 class="mb-8 pb-2 text-7xl font-bold bg-gradient-to-r from-[#7dc4d9] to-[#e1db7f] bg-clip-text text-transparent font-bold">Log</h1>
     {#if date}
-        <div class="flex flex-row items-center justify-center mb-8">
+        <div class="flex flex-row items-center justify-center mb-4">
             <button class="cursor-pointer" on:click={() => incrementDate(-1)}>
                 <MoveLeft size={36} color="black" class="mr-8" />
             </button>
@@ -123,7 +126,7 @@
             </button>
         </div>
     {/if}
-    <h1 class="mb-2 pb-1 text-7xl font-bold bg-gradient-to-r from-[#7dc4d9] to-[#e1db7f] bg-clip-text text-transparent font-bold">Upload A Task</h1>
+    
     <form on:submit={handleTaskSubmit} class="w-full max-w-md bg-white p-6 rounded-lg shadow">
         <div class="mb-4">
             <label class="block text-gray-700 text-sm font-semibold mb-2" for="title">Title</label>

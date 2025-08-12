@@ -56,7 +56,7 @@ func uploadTask(w http.ResponseWriter, r *http.Request) {
 }
 
 func getLogs(w http.ResponseWriter, r *http.Request) {
-	rows, err := db.Pool.Query(context.Background(), `SELECT * FROM TASKS`)
+	rows, err := db.Pool.Query(context.Background(), `SELECT * FROM tasks`)
 	if err != nil {
 		http.Error(w, "Failed to fetch tasks", http.StatusInternalServerError)
 		return
@@ -86,7 +86,7 @@ func getLogsByDay(w http.ResponseWriter, r *http.Request) {
 
 	rows, err := db.Pool.Query(
 		context.Background(),
-		`SELECT * FROM your_table WHERE start::date = $1`,
+		`SELECT * FROM tasks WHERE start::date = $1`,
 		date,
 	)
 
