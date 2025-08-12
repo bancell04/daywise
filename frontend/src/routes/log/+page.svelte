@@ -8,6 +8,7 @@
     let category : string = ""
     let start : Date
     let end : Date
+    let currTaskId : number
 
     let tasks : Task[] = [];
 	let error : string = "";
@@ -106,7 +107,6 @@
         const newDate = new Date(date);
         newDate.setDate(newDate.getDate() + direction);
         date = newDate;
-        console.log(date)
         fetchLogsByDate(date);
     }
 
@@ -135,11 +135,9 @@
         if (task.end != null) {
             let endDate = new Date(task.end)
             let taskEndMinutes = endDate.getHours() * 60 + endDate.getMinutes()
-            console.log("Start Minutes: " + taskStartMinutes)
-            console.log("End Minutes: " + taskEndMinutes)
             let durationIntervals = (taskEndMinutes - taskStartMinutes) / interval
+
             // each slot height is 2rem
-            console.log("Height: " + durationIntervals * 2 + "rem")
             return (durationIntervals * 2).toString()
         } else {
             // return start to NOW.
@@ -155,13 +153,39 @@
         // each interval height is 2rem
         return (intervalsFromMidnight * 2).toString()
     }
+
+    function autofillTaskData(task: Task) {
+        currTaskId = task.id!
+        const titleInput = document.getElementById("title") as HTMLInputElement | null;
+        const categoryInput = document.getElementById("category") as HTMLInputElement | null;
+        const startInput = document.getElementById("start") as HTMLInputElement | null;
+        const endInput = document.getElementById("end") as HTMLInputElement | null;
+
+        titleInput!.value = task.title
+        categoryInput!.value = task.category
+        startInput!.value = toDateTimeLocalString(task.start!)
+        endInput!.value = toDateTimeLocalString(task.end!)
+    }
+
+    function toDateTimeLocalString(dateString: string): string {
+        const date = new Date(dateString);
+        const pad = (num: number) => num.toString().padStart(2, "0");
+
+        const year = date.getFullYear();
+        const month = pad(date.getMonth() + 1);
+        const day = pad(date.getDate());
+        const hours = pad(date.getHours());
+        const minutes = pad(date.getMinutes());
+
+        return `${year}-${month}-${day}T${hours}:${minutes}`;
+    }
 </script>
 
 
 <div class="min-h-175 w-full flex flex-col items-center bg-gray-100">
-    <h1 class="mb-8 pb-2 text-7xl font-bold bg-gradient-to-r from-[#7dc4d9] to-[#e1db7f] bg-clip-text text-transparent font-bold">Log</h1>
+    <!-- <h1 class="mb-8 pb-2 text-7xl font-bold bg-gradient-to-r from-[#7dc4d9] to-[#e1db7f] bg-clip-text text-transparent font-bold">Log</h1> -->
     {#if date}
-        <div class="flex flex-row items-center justify-center mb-4">
+        <div class="flex flex-row items-center justify-between min-w-175 pt-3 mb-4">
             <button class="cursor-pointer" on:click={() => incrementDate(-1)}>
                 <MoveLeft size={36} color="black" class="mr-8" />
             </button>
@@ -171,21 +195,68 @@
             </button>
         </div>
 
-
-        <div class="timeline relative">
-            {#each {length: numIntervals}, i}
-                <div class="flex items-center border border-gray-300 h-[2rem] w-200 px-2">
-                    <span class="text-sm font-medium">{formatTimelineSlot(i)}</span>
+        <div class="flex flex-row items-center align-">
+            <div class="relative max-h-[600px] overflow-y-auto rounded-lg border border-gray-300">
+            {#each {length: numIntervals} as _, i}
+                <div
+                class="flex items-center border border-gray-300 h-[2rem] w-200 px-2"
+                class:bg-gray-50={i % 2 === 0}
+                class:bg-gray-100={i % 2 !== 0}
+                >
+                <span class="text-sm font-medium">{formatTimelineSlot(i)}</span>
                 </div>
             {/each}
 
             {#if tasks && tasks.length > 0}
                 {#each tasks as task}
-                    <div class="absolute border border-red-300 left-[8rem] w-150" style={`top: ${getTaskTopProperty(task)}rem; height: ${getTaskHeightProperty(task)}rem;`}>
-                        {task.title}
-                    </div>
+                <div
+                    role="button"
+                    tabindex="0"
+                    class="flex justify-center items-center absolute border border-red-300 left-[8rem] rounded-lg w-150 bg-white"
+                    style={`top: ${getTaskTopProperty(task)}rem; height: ${getTaskHeightProperty(task)}rem;`}
+                    on:click={() => autofillTaskData(task)}
+                    on:keydown={(e) => e.key === 'Enter' && autofillTaskData(task)}
+                    aria-label="task"
+                >
+                    {task.title}
+                </div>
                 {/each}
             {/if}
+            </div>
+
+            <div class="ml-8">
+                <form on:submit={handleTaskSubmit} class="w-full max-w-md bg-white p-6 rounded-lg shadow">
+                    <div class="mb-4">
+                        <label class="block text-gray-700 text-sm font-semibold mb-2" for="title">Title</label>
+                        <input id="title" required bind:value={title} type="text" class="w-full px-4 py-2 border rounded-md" />
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="block text-gray-700 text-sm font-semibold mb-2" for="category">Category</label>
+                        <input id="category" required bind:value={category} type="text" class="w-full px-4 py-2 border rounded-md" />
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="block text-gray-700 text-sm font-semibold mb-2" for="start">Start</label>
+                        <div class="flex flex-row">
+                            <input id="start" required bind:value={start} type="datetime-local" class="w-full mr-2 px-4 py-2 border rounded-md" />
+                            <button type="button" on:click={setStartTime}>Now</button>
+                        </div>
+                    </div>
+
+                    <div class="mb-6">
+                        <label class="block text-gray-700 text-sm font-semibold mb-2" for="end">End</label>
+                        <div class="flex flex-row ">
+                            <input id="end" required bind:value={end} type="datetime-local" class="w-full px-4 py-2 mr-2 border rounded-md" />
+                            <button type="button" on:click={setEndTime}>Now</button>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-md">
+                        Submit
+                    </button>
+                </form>
+            </div>
         </div>
     {/if}
 </div>
