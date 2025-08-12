@@ -4,8 +4,8 @@
     import type { Task } from '$lib/types';
 
     let date : Date
-    let title : string
-    let category : string
+    let title : string = ""
+    let category : string = ""
     let start : Date
     let end : Date
 
@@ -110,10 +110,55 @@
         fetchLogsByDate(date);
     }
 
+
+    // interval in minutes
+    let interval = 15
+    let numIntervals = 1440 / interval
+
+    function formatTimelineSlot(i: number): string {
+        const minutesFromMidnight = i * interval;
+        const hours24 = Math.floor(minutesFromMidnight / 60);
+        const minutes = minutesFromMidnight % 60;
+
+        const hours12 = hours24 % 12 || 12; 
+        const ampm = hours24 < 12 ? "AM" : "PM";
+
+        const hoursStr = String(hours12).padStart(2, "0");
+        const minutesStr = String(minutes).padStart(2, "0");
+
+        return `${hoursStr}:${minutesStr} ${ampm}`;
+    }
+
+    function getTaskHeightProperty(task: Task): string {
+        let startDate = new Date(task.start)
+        let taskStartMinutes = startDate.getHours() * 60 + startDate.getMinutes()
+        if (task.end != null) {
+            let endDate = new Date(task.end)
+            let taskEndMinutes = endDate.getHours() * 60 + endDate.getMinutes()
+            console.log("Start Minutes: " + taskStartMinutes)
+            console.log("End Minutes: " + taskEndMinutes)
+            let durationIntervals = (taskEndMinutes - taskStartMinutes) / interval
+            // each slot height is 2rem
+            console.log("Height: " + durationIntervals * 2 + "rem")
+            return (durationIntervals * 2).toString()
+        } else {
+            // return start to NOW.
+            return ""
+        }
+    }
+
+    function getTaskTopProperty(task: Task): string {
+        let startDate = new Date(task.start)
+        let minutesFromMidnight = (startDate.getHours() * 60) + startDate.getMinutes()
+
+        let intervalsFromMidnight = minutesFromMidnight / interval
+        // each interval height is 2rem
+        return (intervalsFromMidnight * 2).toString()
+    }
 </script>
 
 
-<div class="min-h-175 w-full flex flex-col justify-center items-center bg-gray-100">
+<div class="min-h-175 w-full flex flex-col items-center bg-gray-100">
     <h1 class="mb-8 pb-2 text-7xl font-bold bg-gradient-to-r from-[#7dc4d9] to-[#e1db7f] bg-clip-text text-transparent font-bold">Log</h1>
     {#if date}
         <div class="flex flex-row items-center justify-center mb-4">
@@ -125,38 +170,23 @@
                 <MoveRight size={36} color="black" class="ml-8" />
             </button>
         </div>
+
+
+        <div class="timeline relative">
+            {#each {length: numIntervals}, i}
+                <div class="flex items-center border border-gray-300 h-[2rem] w-200 px-2">
+                    <span class="text-sm font-medium">{formatTimelineSlot(i)}</span>
+                </div>
+            {/each}
+
+            {#if tasks && tasks.length > 0}
+                {#each tasks as task}
+                    <div class="absolute border border-red-300 left-[8rem] w-150" style={`top: ${getTaskTopProperty(task)}rem; height: ${getTaskHeightProperty(task)}rem;`}>
+                        {task.title}
+                    </div>
+                {/each}
+            {/if}
+        </div>
     {/if}
-    
-    <form on:submit={handleTaskSubmit} class="w-full max-w-md bg-white p-6 rounded-lg shadow">
-        <div class="mb-4">
-            <label class="block text-gray-700 text-sm font-semibold mb-2" for="title">Title</label>
-            <input id="title" required bind:value={title} type="text" class="w-full px-4 py-2 border rounded-md" />
-        </div>
-
-        <div class="mb-4">
-            <label class="block text-gray-700 text-sm font-semibold mb-2" for="category">Category</label>
-            <input id="category" required bind:value={category} type="text" class="w-full px-4 py-2 border rounded-md" />
-        </div>
-
-        <div class="mb-4">
-            <label class="block text-gray-700 text-sm font-semibold mb-2" for="start">Start</label>
-            <div class="flex flex-row">
-                <input id="start" required bind:value={start} type="datetime-local" class="w-full mr-2 px-4 py-2 border rounded-md" />
-                <button type="button" on:click={setStartTime}>Now</button>
-            </div>
-        </div>
-
-        <div class="mb-6">
-            <label class="block text-gray-700 text-sm font-semibold mb-2" for="end">End</label>
-            <div class="flex flex-row ">
-                <input id="end" required bind:value={end} type="datetime-local" class="w-full px-4 py-2 mr-2 border rounded-md" />
-                <button type="button" on:click={setEndTime}>Now</button>
-            </div>
-        </div>
-
-        <button type="submit" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-md">
-            Submit
-        </button>
-  </form>
 </div>
 

@@ -6,7 +6,6 @@
 
 	const goToHome = () => goto('/');
     const goToLog = () => goto('/log');;
-    const goToHistory = () => goto('/history');
     const goToVisualize = () => goto('/visualize');
     const goToProfile = () => goto('/profile');
 
@@ -27,7 +26,6 @@
 				<img src="/daywise.png" class="h-20" alt="daywise logo">
 			</a>
 			<button type="button" class="cursor-pointer text-lg font-bold" on:click={goToLog} class:active={$activePage === "log"}>Log</button>
-			<button type="button" class="cursor-pointer text-lg font-bold" on:click={goToHistory} class:active={$activePage === "history"}>History</button>
 			<button type="button" class="cursor-pointer text-lg font-bold" on:click={goToVisualize} class:active={$activePage === "visualize"}>Visualize</button>
 			<button type="button" class="cursor-pointer text-lg font-bold" on:click={goToProfile} class:active={$activePage === "profile"}>Profile</button>
 		</nav>
@@ -37,7 +35,7 @@
 		<slot />
 	</main>
 
-	<footer class="text-center mt-8 text-sm text-gray-500">
+	<footer class="text-center mt-4 mb-2 text-sm text-gray-500">
 		© {new Date().getFullYear()} Daywise
 	</footer>
 </div>
