@@ -80,6 +80,39 @@ func getLogs(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func getLogsByDay(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	date := vars["date"]
+
+	rows, err := db.Pool.Query(
+		context.Background(),
+		`SELECT * FROM your_table WHERE start::date = $1`,
+		date,
+	)
+
+	if err != nil {
+		http.Error(w, "Failed to fetch tasks", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	tasks := []models.Task{}
+	for rows.Next() {
+		var t models.Task
+		err := rows.Scan(&t.ID, &t.Title, &t.Category, &t.Start, &t.End)
+		if err != nil {
+			log.Fatal(err)
+		}
+		tasks = append(tasks, t)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(tasks); err != nil {
+		http.Error(w, "Failed to encode tasks", http.StatusInternalServerError)
+		return
+	}
+}
+
 func resetDatabaseHandler(w http.ResponseWriter, r *http.Request) {
 	secret := r.Header.Get("X-Admin-Secret")
 	if secret != os.Getenv("RESET_SECRET") {
@@ -109,6 +142,8 @@ func main() {
 	r.HandleFunc("/task", uploadTask).Methods("POST", "OPTIONS")
 
 	r.HandleFunc("/tasks", getLogs).Methods("GET")
+
+	r.HandleFunc("/tasks/{date}", getLogsByDay).Methods("GET")
 
 	r.HandleFunc("/db-reset", resetDatabaseHandler).Methods("GET", "OPTIONS")
 
