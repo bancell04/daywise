@@ -1,5 +1,7 @@
 <script lang="ts">
-    import type { Task } from '$lib/types';
+    import type { Task, Category } from '$lib/types';
+    import { onMount } from 'svelte';
+    import { Plus, Trash } from 'lucide-svelte';
 
     const secret = ""
     var message = ""
@@ -19,16 +21,36 @@
         }
     }
 
-    let date : Date
     let title : string = ""
-    let category : string = ""
+    let category : number
     let start : string
     let end : string
 
+    let categories : Category[] = []
+
+    onMount(async () => {
+        fetchUserCategories();
+	});
+
+    async function fetchUserCategories() {
+        try {
+            const res = await fetch('http://localhost:8080/categories', {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' },
+            });
+
+            if (!res.ok) {
+                throw new Error(`Failed to fetch categories: ${res.status} ${res.statusText}`);
+            }
+            categories = await res.json();
+
+        } catch (error) {
+            console.error(error);
+            return null;
+        }
+    }
 
     async function handleTaskSubmit(event : any) {
-        console.log(start);
-        console.log(end);
         event.preventDefault();
         
         const task : Task = { 
@@ -79,6 +101,31 @@
             end = input.value;
 		}
 	}
+
+	function addCategory() {
+		categories = [...categories, { name: '', color: '#000000' }];
+	}
+
+    function removeCategory(category: Category) {
+        categories = categories.filter(c => c !== category);
+    }
+
+    async function submitCategories() {
+        try {
+            const res = await fetch('http://localhost:8080/categories', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(categories)
+            });
+
+            if (!res.ok) {
+                throw new Error(`Failed to log task: ${res.status} ${res.statusText}`);
+            }
+        } catch (error) {
+            console.error(error);
+            return null;
+        }
+    }
 </script>
 <h1>
     Profile
@@ -98,7 +145,12 @@
 
         <div class="mb-4">
             <label class="block text-gray-700 text-sm font-semibold mb-2" for="category">Category</label>
-            <input id="category" required bind:value={category} type="text" class="w-full px-4 py-2 border rounded-md" />
+            <select id="category" bind:value={category} required class="w-full px-4 py-2 border rounded-md">
+                <option value="" disabled selected>Select a category</option>
+                {#each categories as c}
+                    <option value={c.id}>{c.name}</option>
+                {/each}
+            </select>
         </div>
 
         <div class="mb-4">
@@ -121,3 +173,28 @@
             Submit
         </button>
   </form>
+  
+  <div class="border w-[500px] p-4 flex flex-col items-center justify-center">
+    <h1 class="text-5xl pb-4">Categories</h1>
+    {#if categories && categories.length > 0}
+        {#each categories as category}
+            <div class="border rounded-lg p-2 min-w-[150px] flex flex-row items-center">
+                <input type="text" placeholder="Category Name" bind:value={category.name}>
+                <input class="px-4" type="color" bind:value={category.color}>
+                <button class="cursor-pointer py-2" on:click={() => removeCategory(category)}>
+                    <Trash/>
+                </button>
+            </div>
+        {/each}
+    {:else}
+        <p>No categories found.</p>
+    {/if}
+    
+    <button class="cursor-pointer py-2" on:click={addCategory}>
+        <Plus/>
+    </button>
+
+    <button class="w-[150px] bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-md" on:click={submitCategories}>
+        Save
+    </button>
+  </div>

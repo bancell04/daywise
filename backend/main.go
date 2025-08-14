@@ -29,7 +29,7 @@ func uploadTask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	query := `
-        INSERT INTO tasks (title, category, start, "end")
+        INSERT INTO tasks (title, category_id, start, "end")
         VALUES ($1, $2, $3, $4)
         RETURNING id
     `
@@ -82,14 +82,29 @@ func getLogs(w http.ResponseWriter, r *http.Request) {
 
 func getLogsByDay(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	date := vars["date"]
+	startStr := vars["start"]
+	endStr := vars["end"]
+
+	println(startStr)
+	println(endStr)
+	// startTime, err := time.Parse(time.RFC3339, startStr)
+	// if err != nil {
+	// 	http.Error(w, "Invalid start date", http.StatusBadRequest)
+	// 	return
+	// }
+
+	// endTime, err := time.Parse(time.RFC3339, endStr)
+	// if err != nil {
+	// 	http.Error(w, "Invalid end date", http.StatusBadRequest)
+	// 	return
+	// }
 
 	rows, err := db.Pool.Query(
 		context.Background(),
-		`SELECT * FROM tasks WHERE start::date = $1`,
-		date,
+		`SELECT id, title, category_id, start, "end" FROM tasks WHERE start >= $1 AND "end" <= $2`,
+		startStr,
+		endStr,
 	)
-
 	if err != nil {
 		http.Error(w, "Failed to fetch tasks", http.StatusInternalServerError)
 		return
@@ -99,8 +114,7 @@ func getLogsByDay(w http.ResponseWriter, r *http.Request) {
 	tasks := []models.Task{}
 	for rows.Next() {
 		var t models.Task
-		err := rows.Scan(&t.ID, &t.Title, &t.Category, &t.Start, &t.End)
-		if err != nil {
+		if err := rows.Scan(&t.ID, &t.Title, &t.Category, &t.Start, &t.End); err != nil {
 			log.Fatal(err)
 		}
 		tasks = append(tasks, t)
@@ -111,6 +125,100 @@ func getLogsByDay(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to encode tasks", http.StatusInternalServerError)
 		return
 	}
+}
+
+func getCategories(w http.ResponseWriter, r *http.Request) {
+	rows, err := db.Pool.Query(context.Background(), `SELECT * FROM categories`)
+	if err != nil {
+		http.Error(w, "Failed to fetch categories", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	categories := []models.Category{}
+	for rows.Next() {
+		var c models.Category
+		err := rows.Scan(&c.ID, &c.Name, &c.Color)
+		if err != nil {
+			log.Fatal(err)
+		}
+		categories = append(categories, c)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(categories); err != nil {
+		http.Error(w, "Failed to encode categories", http.StatusInternalServerError)
+		return
+	}
+}
+
+func postCategories(w http.ResponseWriter, r *http.Request) {
+	var categories []models.Category
+	err := json.NewDecoder(r.Body).Decode(&categories)
+	if err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	existingRows, err := db.Pool.Query(context.Background(), `SELECT id FROM categories`)
+	if err != nil {
+		http.Error(w, "Failed to fetch existing categories", http.StatusInternalServerError)
+		return
+	}
+	defer existingRows.Close()
+
+	existingIDs := map[int]bool{}
+	for existingRows.Next() {
+		var id int
+		existingRows.Scan(&id)
+		existingIDs[id] = true
+	}
+
+	incomingIDs := map[int]bool{}
+
+	for _, c := range categories {
+		if c.ID != nil {
+			_, err := db.Pool.Exec(context.Background(), `
+				INSERT INTO categories (id, name, color)
+				VALUES ($1, $2, $3)
+				ON CONFLICT (id) DO UPDATE
+				SET name = EXCLUDED.name,
+					color = EXCLUDED.color;
+			`, *c.ID, c.Name, c.Color)
+			if err != nil {
+				http.Error(w, "Failed to upsert category: "+err.Error(), http.StatusInternalServerError)
+				return
+			}
+			incomingIDs[*c.ID] = true
+		} else {
+			var newID int
+			err := db.Pool.QueryRow(context.Background(), `
+				INSERT INTO categories (name, color)
+				VALUES ($1, $2)
+				RETURNING id
+			`, c.Name, c.Color).Scan(&newID)
+			if err != nil {
+				http.Error(w, "Failed to insert category: "+err.Error(), http.StatusInternalServerError)
+				return
+			}
+			incomingIDs[newID] = true
+		}
+	}
+
+	for id := range existingIDs {
+		if !incomingIDs[id] {
+			_, err := db.Pool.Exec(context.Background(), `DELETE FROM categories WHERE id=$1`, id)
+			if err != nil {
+				http.Error(w, "Failed to delete category: "+err.Error(), http.StatusInternalServerError)
+				return
+			}
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"status": "success",
+	})
 }
 
 func resetDatabaseHandler(w http.ResponseWriter, r *http.Request) {
@@ -139,13 +247,17 @@ func main() {
 
 	r.HandleFunc("/ping", pingHandler).Methods("GET")
 
-	r.HandleFunc("/task", uploadTask).Methods("POST", "OPTIONS")
+	r.HandleFunc("/task", uploadTask).Methods("POST")
 
 	r.HandleFunc("/tasks", getLogs).Methods("GET")
 
-	r.HandleFunc("/tasks/{date}", getLogsByDay).Methods("GET")
+	r.HandleFunc("/tasks/{start}/to/{end}", getLogsByDay).Methods("GET")
 
-	r.HandleFunc("/db-reset", resetDatabaseHandler).Methods("GET", "OPTIONS")
+	r.HandleFunc("/categories", getCategories).Methods("GET")
+
+	r.HandleFunc("/categories", postCategories).Methods("POST")
+
+	r.HandleFunc("/db-reset", resetDatabaseHandler).Methods("GET")
 
 	c := cors.New(cors.Options{
 		AllowedOrigins:   []string{"http://localhost:5173"},

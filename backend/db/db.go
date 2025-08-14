@@ -25,11 +25,31 @@ func Close() {
 }
 
 func Setup() {
+	// _, er := Pool.Exec(context.Background(), `
+	//     DROP TABLE IF EXISTS tasks;
+	//     DROP TABLE IF EXISTS categories;
+	// `)
+	// if er != nil {
+	// 	log.Fatalf("Failed to drop tables: %v", er)
+	// }
+
+	_, errr := Pool.Exec(context.Background(), `
+		CREATE TABLE IF NOT EXISTS categories (
+			id SERIAL PRIMARY KEY,
+			name TEXT NOT NULL,
+			color CHAR(7)
+		)
+    `)
+
+	if errr != nil {
+		log.Fatalf("Failed to create tasks table: %v", errr)
+	}
+
 	_, err := Pool.Exec(context.Background(), `
         CREATE TABLE IF NOT EXISTS tasks (
             id SERIAL PRIMARY KEY,
             title TEXT NOT NULL,
-            category TEXT,
+    		category_id INT REFERENCES categories(id) ON DELETE SET NULL,
             start TIMESTAMPTZ,
             "end" TIMESTAMPTZ
         )

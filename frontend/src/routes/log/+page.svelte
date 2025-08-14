@@ -1,15 +1,15 @@
 <script lang="ts">
     import { onMount } from 'svelte';
     import { MoveLeft, MoveRight } from 'lucide-svelte';
-    import type { Task } from '$lib/types';
+    import type { Task, Category } from '$lib/types';
 
     let date : Date
     let title : string = ""
-    let category : string = ""
+    let category : number
     let start : Date
     let end : Date
     let currTaskId : number
-
+    let categories : Category[] = [];
     let tasks : Task[] = [];
 	let error : string = "";
 
@@ -17,14 +17,43 @@
         const now = new Date();
         date = now;
         fetchLogsByDate(date);
+        fetchUserCategories();
 	});
+
+    async function fetchUserCategories() {
+        try {
+            const res = await fetch('http://localhost:8080/categories', {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' },
+            });
+
+            if (!res.ok) {
+                throw new Error(`Failed to fetch categories: ${res.status} ${res.statusText}`);
+            }
+            categories = await res.json();
+
+        } catch (error) {
+            console.error(error);
+            return null;
+        }
+    }
 
     async function fetchLogsByDate(date : Date) {
         try {
-            const formattedDate = date.toISOString().split('T')[0];
-            const res = await fetch(`http://localhost:8080/tasks/${formattedDate}`);
+            const start = new Date(date);
+            start.setHours(0, 0, 0, 0);
+
+            const end = new Date(date);
+            end.setHours(23, 59, 59, 999);
+
+            const startIso = start.toISOString();
+            const endIso = end.toISOString();
+
+            const res = await fetch(`http://localhost:8080/tasks/${startIso}/to/${endIso}`);
+            console.log('http://localhost:8080/tasks/' + startIso + "/to/" + endIso);
+            tasks = await res.json();
+
 			if (!res.ok) throw new Error('Failed to fetch tasks');
-			tasks = await res.json();
         } catch (err) {
             if (err instanceof Error) {
                 error = err.message;
@@ -130,7 +159,7 @@
     }
 
     function getTaskHeightProperty(task: Task): string {
-        let startDate = new Date(task.start)
+        let startDate = new Date(task.start!)
         let taskStartMinutes = startDate.getHours() * 60 + startDate.getMinutes()
         if (task.end != null) {
             let endDate = new Date(task.end)
@@ -146,7 +175,7 @@
     }
 
     function getTaskTopProperty(task: Task): string {
-        let startDate = new Date(task.start)
+        let startDate = new Date(task.start!)
         let minutesFromMidnight = (startDate.getHours() * 60) + startDate.getMinutes()
 
         let intervalsFromMidnight = minutesFromMidnight / interval
@@ -162,7 +191,8 @@
         const endInput = document.getElementById("end") as HTMLInputElement | null;
 
         titleInput!.value = task.title
-        categoryInput!.value = task.category
+        const category = categories.filter(c => c.id === task.category)[0] || null;
+        categoryInput!.value = category ? category!.id!.toString() : "";
         startInput!.value = toDateTimeLocalString(task.start!)
         endInput!.value = toDateTimeLocalString(task.end!)
     }
@@ -178,6 +208,15 @@
         const minutes = pad(date.getMinutes());
 
         return `${year}-${month}-${day}T${hours}:${minutes}`;
+    }
+
+    function hexToRgba(hex: string, alpha: number) {
+        if (hex != null) {
+            const r = parseInt(hex.slice(1, 3), 16);
+            const g = parseInt(hex.slice(3, 5), 16);
+            const b = parseInt(hex.slice(5, 7), 16);
+            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        }
     }
 </script>
 
@@ -209,16 +248,22 @@
 
             {#if tasks && tasks.length > 0}
                 {#each tasks as task}
+
                 <div
-                    role="button"
-                    tabindex="0"
-                    class="flex justify-center items-center absolute border border-red-300 left-[8rem] rounded-lg w-150 bg-white"
-                    style={`top: ${getTaskTopProperty(task)}rem; height: ${getTaskHeightProperty(task)}rem;`}
-                    on:click={() => autofillTaskData(task)}
-                    on:keydown={(e) => e.key === 'Enter' && autofillTaskData(task)}
-                    aria-label="task"
+                role="button"
+                tabindex="0"
+                class="flex justify-center items-center absolute border left-[8rem] rounded-lg w-150 bg-white"
+                style={`
+                    top: ${getTaskTopProperty(task)}rem;
+                    height: ${getTaskHeightProperty(task)}rem;
+                    border-color: ${categories.find(c => c.id === task.category)?.color};
+                    background-color: ${hexToRgba(categories.find(c => c.id === task.category)?.color!, 0.15)};
+                `}
+                on:click={() => autofillTaskData(task)}
+                on:keydown={(e) => e.key === 'Enter' && autofillTaskData(task)}
+                aria-label="task"
                 >
-                    {task.title}
+                {task.title}
                 </div>
                 {/each}
             {/if}
@@ -228,12 +273,17 @@
                 <form on:submit={handleTaskSubmit} class="w-full max-w-md bg-white p-6 rounded-lg shadow">
                     <div class="mb-4">
                         <label class="block text-gray-700 text-sm font-semibold mb-2" for="title">Title</label>
-                        <input id="title" required bind:value={title} type="text" class="w-full px-4 py-2 border rounded-md" />
+                        <input id="title" placeholder="Task Title" required bind:value={title} type="text" class="w-full px-4 py-2 border rounded-md" />
                     </div>
 
                     <div class="mb-4">
                         <label class="block text-gray-700 text-sm font-semibold mb-2" for="category">Category</label>
-                        <input id="category" required bind:value={category} type="text" class="w-full px-4 py-2 border rounded-md" />
+                        <select id="category" bind:value={category} required class="w-full px-4 py-2 border rounded-md">
+                            <option value="" disabled selected>Select a category</option>
+                            {#each categories as c}
+                                <option value={c.id}>{c.name}</option>
+                            {/each}
+                        </select>
                     </div>
 
                     <div class="mb-4">
