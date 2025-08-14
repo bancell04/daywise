@@ -1,13 +1,10 @@
 <script lang="ts">
     import { onMount } from 'svelte';
-    import { MoveLeft, MoveRight } from 'lucide-svelte';
+    import { MoveLeft, MoveRight, Trash } from 'lucide-svelte';
     import type { Task, Category } from '$lib/types';
 
     let date : Date
-    let title : string = ""
-    let category : number
-    let start : Date
-    let end : Date
+    let formTask : Task = { title: "", category: -1 }
     let currTaskId : number
     let categories : Category[] = [];
     let tasks : Task[] = [];
@@ -86,12 +83,13 @@
 
     async function handleTaskSubmit(event : any) {
         event.preventDefault();
-        
+
         const task : Task = { 
-            title,
-            category,
-            start: new Date(start).toISOString(),
-            end: new Date(end).toISOString()
+            id: formTask.id,
+            title: formTask.title,
+            category: formTask.category,
+            start: new Date(formTask.start!).toISOString(),
+            end: new Date(formTask.end!).toISOString()
         }
 
         try {
@@ -108,10 +106,11 @@
             console.error(error);
             return null;
         }
+        fetchLogsByDate(date);
     }
 
 	function formatDateTimeLocal(date: Date): string {
-	    // Get local date/time in `YYYY-MM-DDTHH:mm` format
+	    // get local date/time in `YYYY-MM-DDTHH:mm` format
 		const pad = (n: number) => n.toString().padStart(2, "0");
 		return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 	}
@@ -190,11 +189,19 @@
         const startInput = document.getElementById("start") as HTMLInputElement | null;
         const endInput = document.getElementById("end") as HTMLInputElement | null;
 
+        if (task.id) {
+            formTask.id = task.id
+        }
+
         titleInput!.value = task.title
+        formTask.title = task.title
         const category = categories.filter(c => c.id === task.category)[0] || null;
         categoryInput!.value = category ? category!.id!.toString() : "";
-        startInput!.value = toDateTimeLocalString(task.start!)
-        endInput!.value = toDateTimeLocalString(task.end!)
+        formTask.category = category ? category!.id! : 0
+        startInput!.value = toDateTimeLocalString(task.start!);
+        formTask.start = toDateTimeLocalString(task.start!)
+        endInput!.value = toDateTimeLocalString(task.end!);
+        formTask.end = toDateTimeLocalString(task.end!)
     }
 
     function toDateTimeLocalString(dateString: string): string {
@@ -216,6 +223,25 @@
             const g = parseInt(hex.slice(3, 5), 16);
             const b = parseInt(hex.slice(5, 7), 16);
             return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        }
+    }
+
+    async function deleteTask(task : Task) {
+        if (task.id) {
+            try {
+                const res = await fetch(`http://localhost:8080/task/${task.id}`, {
+                    method: 'DELETE'
+                });
+
+                if (!res.ok) {
+                    throw new Error(`Failed to delete task: ${res.status} ${res.statusText}`);
+                }
+
+                fetchLogsByDate(date);
+            } catch (error) {
+                console.error(error);
+                return null;
+            }
         }
     }
 </script>
@@ -273,12 +299,12 @@
                 <form on:submit={handleTaskSubmit} class="w-full max-w-md bg-white p-6 rounded-lg shadow">
                     <div class="mb-4">
                         <label class="block text-gray-700 text-sm font-semibold mb-2" for="title">Title</label>
-                        <input id="title" placeholder="Task Title" required bind:value={title} type="text" class="w-full px-4 py-2 border rounded-md" />
+                        <input id="title" placeholder="Task Title" required bind:value={formTask.title} type="text" class="w-full px-4 py-2 border rounded-md" />
                     </div>
 
                     <div class="mb-4">
                         <label class="block text-gray-700 text-sm font-semibold mb-2" for="category">Category</label>
-                        <select id="category" bind:value={category} required class="w-full px-4 py-2 border rounded-md">
+                        <select id="category" bind:value={formTask.category} required class="w-full px-4 py-2 border rounded-md">
                             <option value="" disabled selected>Select a category</option>
                             {#each categories as c}
                                 <option value={c.id}>{c.name}</option>
@@ -289,7 +315,7 @@
                     <div class="mb-4">
                         <label class="block text-gray-700 text-sm font-semibold mb-2" for="start">Start</label>
                         <div class="flex flex-row">
-                            <input id="start" required bind:value={start} type="datetime-local" class="w-full mr-2 px-4 py-2 border rounded-md" />
+                            <input id="start" required bind:value={formTask.start} type="datetime-local" class="w-full mr-2 px-4 py-2 border rounded-md" />
                             <button type="button" on:click={setStartTime}>Now</button>
                         </div>
                     </div>
@@ -297,14 +323,19 @@
                     <div class="mb-6">
                         <label class="block text-gray-700 text-sm font-semibold mb-2" for="end">End</label>
                         <div class="flex flex-row ">
-                            <input id="end" required bind:value={end} type="datetime-local" class="w-full px-4 py-2 mr-2 border rounded-md" />
+                            <input id="end" required bind:value={formTask.end} type="datetime-local" class="w-full px-4 py-2 mr-2 border rounded-md" />
                             <button type="button" on:click={setEndTime}>Now</button>
                         </div>
                     </div>
 
-                    <button type="submit" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-md">
-                        Submit
-                    </button>
+                    <div class="flex flex-row">
+                        <button type="submit" disabled={formTask.title.length === 0 && formTask.category === -1} class="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-md">
+                            Submit
+                        </button>
+                        <button type="button" class="cursor-pointer py-2 ml-2" disabled={formTask.title.length === 0 && formTask.category === -1} on:click={() => deleteTask(formTask)}>
+                            <Trash/>
+                        </button>
+                    </div>
                 </form>
             </div>
         </div>

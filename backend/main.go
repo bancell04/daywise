@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 
 	"github.com/bancell04/daywise/backend/db"
 	"github.com/bancell04/daywise/backend/models"
@@ -28,22 +29,28 @@ func uploadTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// If task.ID is zero, let PostgreSQL generate it
 	query := `
-        INSERT INTO tasks (title, category_id, start, "end")
-        VALUES ($1, $2, $3, $4)
+        INSERT INTO tasks (id, title, category_id, start, "end")
+        VALUES ($1, $2, $3, $4, $5)
+        ON CONFLICT (id) DO UPDATE
+        SET title = EXCLUDED.title,
+            category_id = EXCLUDED.category_id,
+            start = EXCLUDED.start,
+            "end" = EXCLUDED.end
         RETURNING id
     `
-	var id int
+
+	id := task.ID // use zero for new tasks
 	err = db.Pool.QueryRow(context.Background(), query,
-		task.Title, task.Category, task.Start, task.End,
+		id, task.Title, task.Category, task.Start, task.End,
 	).Scan(&id)
 
 	if err != nil {
-		http.Error(w, "Failed to insert task", http.StatusInternalServerError)
+		http.Error(w, "Failed to insert/update task: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// Send back the inserted task with its new ID
 	response := map[string]interface{}{
 		"id":       id,
 		"title":    task.Title,
@@ -84,20 +91,6 @@ func getLogsByDay(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	startStr := vars["start"]
 	endStr := vars["end"]
-
-	println(startStr)
-	println(endStr)
-	// startTime, err := time.Parse(time.RFC3339, startStr)
-	// if err != nil {
-	// 	http.Error(w, "Invalid start date", http.StatusBadRequest)
-	// 	return
-	// }
-
-	// endTime, err := time.Parse(time.RFC3339, endStr)
-	// if err != nil {
-	// 	http.Error(w, "Invalid end date", http.StatusBadRequest)
-	// 	return
-	// }
 
 	rows, err := db.Pool.Query(
 		context.Background(),
@@ -238,6 +231,33 @@ func resetDatabaseHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("Database reset"))
 }
 
+func deleteTask(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	idStr := vars["id"]
+
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(w, "Invalid task ID", http.StatusBadRequest)
+		return
+	}
+
+	result, err := db.Pool.Exec(context.Background(), `DELETE FROM tasks WHERE id=$1`, id)
+	if err != nil {
+		http.Error(w, "Failed to delete task", http.StatusInternalServerError)
+		return
+	}
+
+	if result.RowsAffected() == 0 {
+		http.Error(w, "Task not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"status": "success",
+	})
+}
+
 func main() {
 	db.Connect()
 	db.Setup()
@@ -245,23 +265,25 @@ func main() {
 
 	r := mux.NewRouter()
 
-	r.HandleFunc("/ping", pingHandler).Methods("GET")
+	r.HandleFunc("/ping", pingHandler).Methods("GET", "OPTIONS")
 
-	r.HandleFunc("/task", uploadTask).Methods("POST")
+	r.HandleFunc("/task", uploadTask).Methods("POST", "OPTIONS")
 
-	r.HandleFunc("/tasks", getLogs).Methods("GET")
+	r.HandleFunc("/task/{id}", deleteTask).Methods("DELETE", "OPTIONS")
 
-	r.HandleFunc("/tasks/{start}/to/{end}", getLogsByDay).Methods("GET")
+	r.HandleFunc("/tasks", getLogs).Methods("GET", "OPTIONS")
 
-	r.HandleFunc("/categories", getCategories).Methods("GET")
+	r.HandleFunc("/tasks/{start}/to/{end}", getLogsByDay).Methods("GET", "OPTIONS")
 
-	r.HandleFunc("/categories", postCategories).Methods("POST")
+	r.HandleFunc("/categories", getCategories).Methods("GET", "OPTIONS")
 
-	r.HandleFunc("/db-reset", resetDatabaseHandler).Methods("GET")
+	r.HandleFunc("/categories", postCategories).Methods("POST", "OPTIONS")
+
+	r.HandleFunc("/db-reset", resetDatabaseHandler).Methods("GET", "OPTIONS")
 
 	c := cors.New(cors.Options{
 		AllowedOrigins:   []string{"http://localhost:5173"},
-		AllowedMethods:   []string{"GET", "POST", "OPTIONS"},
+		AllowedMethods:   []string{"GET", "POST", "OPTIONS", "DELETE"},
 		AllowedHeaders:   []string{"Content-Type", "X-Admin-Secret"},
 		AllowCredentials: true,
 	})
