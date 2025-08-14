@@ -22,37 +22,63 @@ func UploadTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// If task.ID is zero, let PostgreSQL generate it
-	query := `
-        INSERT INTO tasks (id, title, category_id, start, "end")
-        VALUES ($1, $2, $3, $4, $5)
-        ON CONFLICT (id) DO UPDATE
-        SET title = EXCLUDED.title,
-            category_id = EXCLUDED.category_id,
-            start = EXCLUDED.start,
-            "end" = EXCLUDED.end
-        RETURNING id
-    `
+	if task.ID != nil {
+		query := `
+			INSERT INTO tasks (id, title, category_id, start, "end")
+			VALUES ($1, $2, $3, $4, $5)
+			ON CONFLICT (id) DO UPDATE
+			SET title = EXCLUDED.title,
+				category_id = EXCLUDED.category_id,
+				start = EXCLUDED.start,
+				"end" = EXCLUDED.end
+			RETURNING id
+		`
 
-	id := task.ID // use zero for new tasks
-	err = db.Pool.QueryRow(context.Background(), query,
-		id, task.Title, task.Category, task.Start, task.End,
-	).Scan(&id)
+		id := task.ID
+		err = db.Pool.QueryRow(context.Background(), query,
+			id, task.Title, task.Category, task.Start, task.End,
+		).Scan(&id)
 
-	if err != nil {
-		http.Error(w, "Failed to insert/update task: "+err.Error(), http.StatusInternalServerError)
-		return
+		if err != nil {
+			http.Error(w, "Failed to insert/update task: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		response := map[string]interface{}{
+			"id":       id,
+			"title":    task.Title,
+			"category": task.Category,
+			"start":    task.Start,
+			"end":      task.End,
+		}
+
+		json.NewEncoder(w).Encode(response)
+	} else {
+		query := `
+			INSERT INTO TASKS (title, category_id, start, "end")
+			VALUES ($1, $2, $3, $4)
+			RETURNING id
+		`
+		var newID int
+		err = db.Pool.QueryRow(context.Background(), query,
+			task.Title, task.Category, task.Start, task.End,
+		).Scan(&newID)
+
+		if err != nil {
+			http.Error(w, "Failed to insert/update task: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		response := map[string]interface{}{
+			"id":       newID,
+			"title":    task.Title,
+			"category": task.Category,
+			"start":    task.Start,
+			"end":      task.End,
+		}
+
+		json.NewEncoder(w).Encode(response)
 	}
-
-	response := map[string]interface{}{
-		"id":       id,
-		"title":    task.Title,
-		"category": task.Category,
-		"start":    task.Start,
-		"end":      task.End,
-	}
-
-	json.NewEncoder(w).Encode(response)
 }
 
 func GetTasks(w http.ResponseWriter, r *http.Request) {

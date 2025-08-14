@@ -242,6 +242,17 @@
                 console.error(error);
                 return null;
             }
+        } else {
+            tasks = tasks.filter(t => 
+                !(t.title === formTask.title && t.start === formTask.start && t.end === formTask.end)
+            );
+        }
+
+        formTask = {
+            title: "",
+            category: -1,
+            start: undefined,
+            end: undefined
         }
     }
 
@@ -261,6 +272,10 @@
         }
         tasks = [...tasks, task];
         formTask = task;
+    }
+
+    function reRenderTasks() {
+        tasks = [...tasks]
     }
 </script>
 
@@ -321,12 +336,12 @@
                 <form on:submit={handleTaskSubmit} class="w-full max-w-md bg-white p-6 rounded-lg shadow">
                     <div class="mb-4">
                         <label class="block text-gray-700 text-sm font-semibold mb-2" for="title">Title</label>
-                        <input id="title" placeholder="Task Title" required bind:value={formTask.title} type="text" class="w-full px-4 py-2 border rounded-md" />
+                        <input id="title" placeholder="Task Title" required on:change={reRenderTasks} on:input={reRenderTasks} bind:value={formTask.title} type="text" class="w-full px-4 py-2 border rounded-md" />
                     </div>
 
                     <div class="mb-4">
                         <label class="block text-gray-700 text-sm font-semibold mb-2" for="category">Category</label>
-                        <select id="category" bind:value={formTask.category} required class="w-full px-4 py-2 border rounded-md">
+                        <select id="category"  on:change={reRenderTasks} bind:value={formTask.category} required class="w-full px-4 py-2 border rounded-md">
                             <option value="" disabled selected>Select a category</option>
                             {#each categories as c}
                                 <option value={c.id}>{c.name}</option>
@@ -337,7 +352,7 @@
                     <div class="mb-4">
                         <label class="block text-gray-700 text-sm font-semibold mb-2" for="start">Start</label>
                         <div class="flex flex-row">
-                            <input id="start" required bind:value={formTask.start} type="datetime-local" class="w-full mr-2 px-4 py-2 border rounded-md" />
+                            <input id="start" required  on:change={reRenderTasks} bind:value={formTask.start} type="datetime-local" class="w-full mr-2 px-4 py-2 border rounded-md" />
                             <button type="button" on:click={setStartTime}>Now</button>
                         </div>
                     </div>
@@ -345,7 +360,7 @@
                     <div class="mb-6">
                         <label class="block text-gray-700 text-sm font-semibold mb-2" for="end">End</label>
                         <div class="flex flex-row ">
-                            <input id="end" required bind:value={formTask.end} type="datetime-local" class="w-full px-4 py-2 mr-2 border rounded-md" />
+                            <input id="end" required  on:change={reRenderTasks} bind:value={formTask.end} type="datetime-local" class="w-full px-4 py-2 mr-2 border rounded-md" />
                             <button type="button" on:click={setEndTime}>Now</button>
                         </div>
                     </div>
