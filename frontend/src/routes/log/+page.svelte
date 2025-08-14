@@ -244,6 +244,24 @@
             }
         }
     }
+
+    async function createNewTask(i : number) {
+        await fetchLogsByDate(date);
+
+        const minutesAfterMidnight = interval * i;
+        let startDate = new Date(date);
+        startDate.setHours(Math.floor(minutesAfterMidnight / 60));
+        startDate.setMinutes(Math.floor(minutesAfterMidnight % 60));
+
+        let task : Task = {
+            title : "",
+            category : -1,
+            start : formatDateTimeLocal(startDate),
+            end : formatDateTimeLocal(new Date(startDate.getTime() + interval * 60 * 1000))
+        }
+        tasks = [...tasks, task];
+        formTask = task;
+    }
 </script>
 
 
@@ -264,9 +282,13 @@
             <div class="relative max-h-[600px] overflow-y-auto rounded-lg border border-gray-300">
             {#each {length: numIntervals} as _, i}
                 <div
+                role="button"
+                tabindex="0"
+                on:keydown={(e) => e.key === 'Enter' && createNewTask(i)}
                 class="flex items-center border border-gray-300 h-[2rem] w-200 px-2"
                 class:bg-gray-50={i % 2 === 0}
                 class:bg-gray-100={i % 2 !== 0}
+                on:click={() => createNewTask(i)}
                 >
                 <span class="text-sm font-medium">{formatTimelineSlot(i)}</span>
                 </div>
