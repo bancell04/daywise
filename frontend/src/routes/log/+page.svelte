@@ -10,12 +10,36 @@
     let tasks : Task[] = [];
 	let error : string = "";
 
-	onMount(async () => {
+    let currTime: Date = new Date();
+
+    function startClock(): ReturnType<typeof setInterval> {
+        const id = setInterval(() => {
+            currTime = new Date();
+        }, 2000);
+        return id;
+    }
+
+    function stopClock(id: ReturnType<typeof setInterval>): void {
+        clearInterval(id);
+    }
+
+    const clockId = startClock();
+
+	onMount(() => {
         const now = new Date();
         date = now;
         fetchLogsByDate(date);
         fetchUserCategories();
+
+        window.addEventListener("beforeunload", () => stopClock(clockId));
+
+        return () => {
+            stopClock(clockId);
+            window.removeEventListener("beforeunload", () => stopClock(clockId));
+        };
 	});
+
+
 
     async function fetchUserCategories() {
         try {
@@ -173,9 +197,8 @@
         }
     }
 
-    function getTaskTopProperty(task: Task): string {
-        let startDate = new Date(task.start!)
-        let minutesFromMidnight = (startDate.getHours() * 60) + startDate.getMinutes()
+    function getTaskTopProperty(start: Date): string {
+        let minutesFromMidnight = (start.getHours() * 60) + start.getMinutes() + (start.getSeconds() / 60)
 
         let intervalsFromMidnight = minutesFromMidnight / interval
         // each interval height is 2rem
@@ -281,7 +304,7 @@
 
 
 <div class="min-h-175 w-full flex flex-col items-center bg-gray-100">
-    <!-- <h1 class="mb-8 pb-2 text-7xl font-bold bg-gradient-to-r from-[#7dc4d9] to-[#e1db7f] bg-clip-text text-transparent font-bold">Log</h1> -->
+    <p>{currTime}</p>
     {#if date}
         <div class="flex flex-row items-center justify-between min-w-175 pt-3 mb-4">
             <button class="cursor-pointer" on:click={() => incrementDate(-1)}>
@@ -294,13 +317,13 @@
         </div>
 
         <div class="flex flex-row items-center align-">
-            <div class="relative max-h-[600px] overflow-y-auto rounded-lg border border-gray-300">
+            <div class="relative max-h-[36rem] overflow-y-auto rounded-lg border border-gray-300">
             {#each {length: numIntervals} as _, i}
                 <div
                 role="button"
                 tabindex="0"
                 on:keydown={(e) => e.key === 'Enter' && createNewTask(i)}
-                class="flex items-center border border-gray-300 h-[2rem] w-200 px-2"
+                class="flex items-center border border-gray-300 h-[2rem] w-200 px-2 z-3"
                 class:bg-gray-50={i % 2 === 0}
                 class:bg-gray-100={i % 2 !== 0}
                 on:click={() => createNewTask(i)}
@@ -315,9 +338,9 @@
                 <div
                 role="button"
                 tabindex="0"
-                class="flex justify-center items-center absolute border left-[8rem] rounded-lg w-150 bg-white"
+                class="flex justify-center items-center absolute border left-[8rem] rounded-lg w-150 bg-white z-5"
                 style={`
-                    top: ${getTaskTopProperty(task)}rem;
+                    top: ${getTaskTopProperty(new Date(task.start!))}rem;
                     height: ${getTaskHeightProperty(task)}rem;
                     border-color: ${categories.find(c => c.id === task.category)?.color};
                     background-color: ${hexToRgba(categories.find(c => c.id === task.category)?.color!, 0.15)};
@@ -330,6 +353,12 @@
                 </div>
                 {/each}
             {/if}
+                
+                <div 
+                class="absolute rounded-lg w-full bg-[#7dc4d9] h-[4px]"
+                style:top={`${getTaskTopProperty(currTime)}rem`}
+                >
+                </div>
             </div>
 
             <div class="ml-8">
